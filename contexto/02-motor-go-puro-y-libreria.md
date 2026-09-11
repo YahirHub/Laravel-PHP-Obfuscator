@@ -63,5 +63,10 @@ Convertir phpcloak en un motor de protección PHP/Laravel 100% ejecutado en Go, 
 - Seguir incorporando fixtures reales de proyectos Laravel si aparecen construcciones PHP no cubiertas por el lexer nativo.
 - Evaluar un parser PHP completo escrito en Go sólo si los fixtures reales demuestran que la validación estructural es insuficiente; no agregar esa dependencia de forma especulativa.
 
+# Publicación
+- `43bc105` — `Convertir phpcloak a motor Go puro y librería`.
+- `65c46e9` — `Adaptar releases al motor Go puro`.
+- Ambos cambios están publicados en `main` de `YahirHub/Laravel-PHP-Obfuscator`.
+
 # Próximos pasos
-Publicar el refactor en `main`, actualizar el workflow remoto y usar el siguiente Release manual para generar los primeros binarios del motor Go puro.
+Cuando se quiera publicar la primera versión del motor Go puro, ejecutar manualmente **Actions → Manual Release**. El workflow creará `v0.1` para el Release y `v0.1.0` como alias SemVer del módulo Go, sin intervención adicional. No se ejecutó el workflow durante esta tarea.

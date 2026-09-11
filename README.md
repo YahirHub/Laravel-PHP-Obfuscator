@@ -204,7 +204,7 @@ La restauración verifica SHA-256 antes de tocar el proyecto y recupera byte por
 
 # Usar phpcloak como librería Go
 
-El módulo raíz es directamente importable. En cada Release el workflow crea también un alias SemVer (`v0.1.0`, `v0.2.0`, etc.) para que el ecosistema de módulos Go pueda resolver versiones de forma estándar:
+El módulo raíz es directamente importable. En cada Release el workflow crea también un alias SemVer (`v0.1.0`, `v0.2.0`, etc.) para que el ecosistema de módulos Go pueda resolver versiones de forma estándar. Después de ejecutar el primer Release manual:
 
 ```bash
 go get github.com/YahirHub/Laravel-PHP-Obfuscator@v0.1.0
