@@ -56,11 +56,17 @@ func runObfuscate(root string, args []string) error {
 	f.BoolVar(&validate, "verify", true, "alias of --validate")
 	keyEnv := f.String("key-env", "", "optional runtime key environment variable")
 	keyFile := f.String("key-file", phpcloak.DefaultKeyFile, "local runtime key path relative to project")
+	headerText := f.String("header-text", "", `visible PHP header text; literal \n creates line breaks`)
+	headerFile := f.String("header-file", "", "read visible PHP header text from a UTF-8 file")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
 	if f.NArg() != 0 {
 		return fmt.Errorf("unexpected arguments: %s", strings.Join(f.Args(), " "))
+	}
+	header, err := resolveHeaderText(*headerText, *headerFile)
+	if err != nil {
+		return err
 	}
 
 	cfg := phpcloak.DefaultConfig(root)
@@ -72,6 +78,7 @@ func runObfuscate(root string, args []string) error {
 	cfg.Validate = validate
 	cfg.KeyEnv = *keyEnv
 	cfg.KeyFile = *keyFile
+	cfg.HeaderText = header
 	cfg.Version = version
 
 	manifest, err := phpcloak.Protect(context.Background(), cfg)
@@ -146,6 +153,23 @@ func parseCLI(args []string) (root, command string, rest []string, err error) {
 	return root, "help", nil, nil
 }
 
+func resolveHeaderText(text, file string) (string, error) {
+	if text != "" && file != "" {
+		return "", errors.New("--header-text and --header-file are mutually exclusive")
+	}
+	if file != "" {
+		b, err := os.ReadFile(file)
+		if err != nil {
+			return "", fmt.Errorf("read header file: %w", err)
+		}
+		return string(b), nil
+	}
+	text = strings.ReplaceAll(text, `\r\n`, "\n")
+	text = strings.ReplaceAll(text, `\n`, "\n")
+	text = strings.ReplaceAll(text, `\r`, "\n")
+	return text, nil
+}
+
 func splitList(s string) []string {
 	if strings.TrimSpace(s) == "" {
 		return nil
@@ -175,6 +199,8 @@ Obfuscate options:
   --all-php              process every PHP file except excluded paths
   --key-env NAME         optional environment override for sealed key
   --key-file PATH        local key file (default app/.phpcloak/phpcloak.key)
+  --header-text TEXT     visible comment header; literal \n creates line breaks
+  --header-file PATH     read a multiline visible comment header from a UTF-8 file
   --validate=true|false  native structural validation before replacement (default true)
   --verify=true|false    compatibility alias of --validate
   --force                replace an existing .debofuscated backup

@@ -124,3 +124,40 @@ func TestValidateRejectsBrokenSource(t *testing.T) {
 		t.Fatal("expected validation error")
 	}
 }
+
+func TestMinifyPreservesSpaceBeforeLeadingNamespaceSeparator(t *testing.T) {
+	source := []byte(`<?php
+function check($value) {
+    if ($value instanceof \Illuminate\Database\Eloquent\Model) {
+        return new \DateTimeImmutable();
+    }
+    return null;
+}
+`)
+	out, err := Minify(source)
+	if err != nil {
+		t.Fatalf("Minify: %v", err)
+	}
+	text := string(out)
+	if strings.Contains(text, `instanceof\Illuminate`) {
+		t.Fatalf("instanceof was fused with namespace: %s", text)
+	}
+	if !strings.Contains(text, `instanceof \Illuminate\Database\Eloquent\Model`) {
+		t.Fatalf("instanceof namespace spacing was not preserved: %s", text)
+	}
+	if strings.Contains(text, `new\DateTimeImmutable`) {
+		t.Fatalf("new was fused with namespace: %s", text)
+	}
+	if !strings.Contains(text, `new \DateTimeImmutable`) {
+		t.Fatalf("new namespace spacing was not preserved: %s", text)
+	}
+	if err := Validate(out); err != nil {
+		t.Fatalf("Validate(minified): %v", err)
+	}
+}
+
+func TestValidateRejectsJoinedInstanceofNamespace(t *testing.T) {
+	if err := Validate([]byte(`<?php return $value instanceof\DateTimeInterface;`)); err == nil {
+		t.Fatal("expected joined instanceof namespace to fail validation")
+	}
+}

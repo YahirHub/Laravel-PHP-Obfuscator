@@ -62,6 +62,10 @@ func Protect(ctx context.Context, cfg Config) (*Manifest, error) {
 	if !validRelativeKeyPath(cfg.KeyFile) {
 		return nil, errors.New("key file must be a relative path inside the project")
 	}
+	headerBlock, err := phpHeaderComment(cfg.HeaderText)
+	if err != nil {
+		return nil, err
+	}
 
 	root, err := filepath.Abs(cfg.Root)
 	if err != nil {
@@ -150,6 +154,10 @@ func Protect(ctx context.Context, cfg Config) (*Manifest, error) {
 			return cleanupOnError(err)
 		}
 		runtimeSource := sealedRuntimePHP(cfg.KeyEnv, cfg.KeyFile)
+		runtimeSource, err = addPHPHeader(runtimeSource, headerBlock)
+		if err != nil {
+			return cleanupOnError(fmt.Errorf("add header to runtime: %w", err))
+		}
 		if cfg.Validate {
 			if err := Validate(runtimeSource); err != nil {
 				return cleanupOnError(fmt.Errorf("validate runtime: %w", err))
@@ -214,6 +222,10 @@ func Protect(ctx context.Context, cfg Config) (*Manifest, error) {
 			}
 		}
 
+		transformed, err = addPHPHeader(transformed, headerBlock)
+		if err != nil {
+			return cleanupOnError(fmt.Errorf("add header to %s: %w", t.rel, err))
+		}
 		if cfg.Validate {
 			if err := Validate(transformed); err != nil {
 				return cleanupOnError(fmt.Errorf("validate %s: %w", t.rel, err))
@@ -556,6 +568,59 @@ func writeBytes(path string, data []byte, mode fs.FileMode) error {
 		return err
 	}
 	return os.WriteFile(path, data, mode.Perm())
+}
+
+func phpHeaderComment(text string) ([]byte, error) {
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
+	text = strings.Trim(text, "\n")
+	if strings.TrimSpace(text) == "" {
+		return nil, nil
+	}
+	if strings.ContainsRune(text, '\x00') {
+		return nil, errors.New("header text may not contain NUL bytes")
+	}
+	if strings.Contains(text, "*/") {
+		return nil, errors.New("header text may not contain */ because it would close the PHP comment")
+	}
+	if strings.Contains(text, "?>") {
+		return nil, errors.New("header text may not contain ?>")
+	}
+
+	var b strings.Builder
+	b.WriteString("\n/*\n")
+	for _, line := range strings.Split(text, "\n") {
+		b.WriteString(" *")
+		if line != "" {
+			b.WriteByte(' ')
+			b.WriteString(line)
+		}
+		b.WriteByte('\n')
+	}
+	b.WriteString(" */\n")
+	return []byte(b.String()), nil
+}
+
+func addPHPHeader(source, header []byte) ([]byte, error) {
+	if len(header) == 0 {
+		return source, nil
+	}
+	tokens, err := lexPHP(source)
+	if err != nil {
+		return nil, err
+	}
+	for _, tok := range tokens {
+		if tok.kind != tokenOpenTag {
+			continue
+		}
+		insertAt := tok.pos + len(tok.text)
+		out := make([]byte, 0, len(source)+len(header))
+		out = append(out, source[:insertAt]...)
+		out = append(out, header...)
+		out = append(out, source[insertAt:]...)
+		return out, nil
+	}
+	return nil, errors.New("PHP opening tag not found while adding header")
 }
 
 func sealedProjectKey(envName, keyPath string) ([]byte, string, bool, error) {

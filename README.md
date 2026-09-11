@@ -139,12 +139,43 @@ Opciones:
 --all-php
 --key-file PATH
 --key-env NAME
+--header-text TEXT
+--header-file PATH
 --validate=true|false
 --verify=true|false     # alias compatible de --validate
 --force
 ```
 
 Ya no existe `--php`: el motor no necesita un ejecutable PHP.
+
+## Encabezado visible en los PHP protegidos
+
+Puedes agregar un aviso de propiedad, licencia o distribución al inicio de cada archivo PHP procesado. `phpcloak` lo inserta como un comentario seguro inmediatamente después del primer `<?php`, de modo que no genera salida HTTP y permanece visible incluso en los stubs del modo `sealed`.
+
+Texto directo con saltos de línea usando `\n`:
+
+```powershell
+phpcloak.exe --root "C:\\ruta\\laravel" obfuscate --mode sealed --header-text "Propiedad de X empresa\nUso exclusivo\nProhibida su distribución"
+```
+
+También puedes usar un archivo UTF-8, que es la opción más cómoda para avisos largos:
+
+```powershell
+phpcloak.exe --root "C:\\ruta\\laravel" obfuscate --mode sealed --header-file "C:\\ruta\\aviso.txt"
+```
+
+Ejemplo del resultado visible:
+
+```php
+<?php
+/*
+ * Propiedad de X empresa
+ * Uso exclusivo
+ * Prohibida su distribución
+ */
+```
+
+`--header-text` y `--header-file` son mutuamente excluyentes. Por seguridad, el texto no puede contener `*/`, `?>` ni bytes NUL. En la API Go se configura directamente con `Config.HeaderText` y puede contener saltos de línea reales.
 
 ## Key del modo sealed
 
@@ -268,6 +299,7 @@ import (
 func main() {
     cfg := phpcloak.DefaultConfig("/srv/mi-laravel")
     cfg.Mode = phpcloak.ModeSealed
+    cfg.HeaderText = "Propiedad de X empresa\nUso exclusivo"
 
     manifest, err := phpcloak.Protect(context.Background(), cfg)
     if err != nil {

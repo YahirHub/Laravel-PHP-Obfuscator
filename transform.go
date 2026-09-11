@@ -334,8 +334,10 @@ func renderTokens(tokens []phpToken, replacements map[int]string) []byte {
 	var b strings.Builder
 	var prev *phpToken
 	var prevText string
+	hadGap := false
 	for i, tok := range tokens {
 		if tok.kind == tokenWhitespace || tok.kind == tokenComment {
+			hadGap = true
 			continue
 		}
 		text := tok.text
@@ -348,9 +350,10 @@ func renderTokens(tokens []phpToken, replacements map[int]string) []byte {
 			b.WriteString(text)
 			prev = nil
 			prevText = ""
+			hadGap = false
 			continue
 		}
-		if prev != nil && needsSeparator(*prev, prevText, tok, text) {
+		if prev != nil && needsSeparator(*prev, prevText, tok, text, hadGap) {
 			b.WriteByte(' ')
 		}
 		b.WriteString(text)
@@ -360,11 +363,12 @@ func renderTokens(tokens []phpToken, replacements map[int]string) []byte {
 		}
 		prev = &copyTok
 		prevText = text
+		hadGap = false
 	}
 	return []byte(b.String())
 }
 
-func needsSeparator(prev phpToken, prevText string, next phpToken, nextText string) bool {
+func needsSeparator(prev phpToken, prevText string, next phpToken, nextText string, hadGap bool) bool {
 	if prev.kind == tokenOpenTag {
 		return next.kind != tokenCloseTag && next.kind != tokenRaw
 	}
@@ -372,6 +376,12 @@ func needsSeparator(prev phpToken, prevText string, next phpToken, nextText stri
 		return false
 	}
 	if wordish(prev.kind) && wordish(next.kind) {
+		return true
+	}
+	// PHP 8 tokenizes an identifier immediately followed by a namespace
+	// separator as a qualified name. Preserve an existing gap so valid source
+	// such as `instanceof \Foo` never becomes the different token `instanceof\Foo`.
+	if hadGap && prev.kind == tokenIdentifier && nextText == `\` {
 		return true
 	}
 	if prev.kind == tokenNumber && strings.HasPrefix(nextText, ".") {

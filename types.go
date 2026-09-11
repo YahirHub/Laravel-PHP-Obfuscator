@@ -56,16 +56,17 @@ func (m Mode) Valid() bool {
 }
 
 type Config struct {
-	Root     string
-	Mode     Mode
-	Includes []string
-	Excludes []string
-	AllPHP   bool
-	Force    bool
-	Validate bool
-	KeyEnv   string
-	KeyFile  string
-	Version  string
+	Root       string
+	Mode       Mode
+	Includes   []string
+	Excludes   []string
+	AllPHP     bool
+	Force      bool
+	Validate   bool
+	KeyEnv     string
+	KeyFile    string
+	HeaderText string
+	Version    string
 }
 
 func DefaultConfig(root string) Config {

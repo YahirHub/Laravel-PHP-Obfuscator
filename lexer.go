@@ -300,6 +300,9 @@ func Validate(source []byte) error {
 	if err != nil {
 		return err
 	}
+	if err := validateKnownTokenCollisions(tokens); err != nil {
+		return err
+	}
 	var stack []byte
 	for _, tok := range tokens {
 		if tok.kind == tokenRaw || tok.kind == tokenWhitespace || tok.kind == tokenComment || tok.kind == tokenString || tok.kind == tokenHeredoc {
@@ -328,6 +331,18 @@ func Validate(source []byte) error {
 	}
 	if len(stack) != 0 {
 		return fmt.Errorf("unclosed delimiter %q", string(stack[len(stack)-1]))
+	}
+	return nil
+}
+
+func validateKnownTokenCollisions(tokens []phpToken) error {
+	for i := 0; i+1 < len(tokens); i++ {
+		if tokens[i].kind != tokenIdentifier || !strings.EqualFold(tokens[i].text, "instanceof") {
+			continue
+		}
+		if tokens[i+1].text == `\` {
+			return fmt.Errorf("missing whitespace after instanceof before namespace separator at byte %d", tokens[i+1].pos)
+		}
 	}
 	return nil
 }
