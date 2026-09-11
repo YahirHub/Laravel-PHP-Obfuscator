@@ -1,0 +1,19 @@
+# Binarios locales
+/phpcloak
+/phpcloak.exe
+/*.exe
+/*.test
+
+# Builds
+/dist/
+/build/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Temporales
+*.tmp
+*.log
