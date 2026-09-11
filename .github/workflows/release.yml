@@ -36,6 +36,13 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      - name: Test pure-Go library and CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test ./...
+          go vet ./...
+
       - name: Calculate next version
         id: version
         shell: bash
@@ -43,29 +50,32 @@ jobs:
           set -euo pipefail
           git fetch --force --tags origin
 
-          latest="$(git tag --list 'v0.*' --sort=-version:refname | head -n 1)"
-          if [[ -z "$latest" ]]; then
-            next=1
-          else
-            minor="${latest#v0.}"
-            if [[ ! "$minor" =~ ^[0-9]+$ ]]; then
-              echo "Unexpected tag format: $latest" >&2
-              exit 1
+          latest_num=0
+          while IFS= read -r existing; do
+            if [[ "$existing" =~ ^v0\.([0-9]+)$ ]]; then
+              n=$((10#${BASH_REMATCH[1]}))
+              if (( n > latest_num )); then
+                latest_num=$n
+              fi
             fi
-            next=$((10#$minor + 1))
-          fi
+          done < <(git tag --list 'v0.*')
 
+          next=$((latest_num + 1))
           tag="v0.${next}"
+          module_tag="v0.${next}.0"
           version="0.${next}"
 
-          if git rev-parse "$tag" >/dev/null 2>&1; then
-            echo "Tag already exists: $tag" >&2
-            exit 1
-          fi
+          for candidate in "$tag" "$module_tag"; do
+            if git rev-parse "$candidate" >/dev/null 2>&1; then
+              echo "Tag already exists: $candidate" >&2
+              exit 1
+            fi
+          done
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "module_tag=$module_tag" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Next release: $tag"
+          echo "Next release: $tag (Go module alias: $module_tag)"
 
       - name: Build binaries
         shell: bash
@@ -84,7 +94,9 @@ jobs:
 
             echo "Building ${output}"
             CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
-              go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o "$output" .
+              go build -trimpath \
+                -ldflags "-s -w -X main.version=${VERSION} -X github.com/YahirHub/Laravel-PHP-Obfuscator.Version=${VERSION}" \
+                -o "$output" ./cmd/phpcloak
           }
 
           build windows amd64 .exe
@@ -122,3 +134,12 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "phpcloak $TAG" \
             --generate-notes
+
+      - name: Create Go module SemVer alias
+        env:
+          MODULE_TAG: ${{ steps.version.outputs.module_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git tag "$MODULE_TAG" "$GITHUB_SHA"
+          git push origin "$MODULE_TAG"
