@@ -23,8 +23,9 @@ import (
 	"time"
 )
 
+var version = "0.5.1"
+
 const (
-	version    = "0.5.1"
 	backupDir  = ".debofuscated"
 	manifestFN = ".phpcloak-manifest.json"
 	runtimeFN  = ".phpcloak-runtime.php"
